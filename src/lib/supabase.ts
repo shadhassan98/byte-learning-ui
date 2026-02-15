@@ -1,13 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
-// Access environment variables that are injected via Vite config
-const supabaseUrl = import.meta.env.SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.SUPABASE_ANON_KEY as string;
-
-if (!supabaseUrl || !supabaseAnonKey || supabaseUrl === 'undefined') {
-  console.error('Supabase environment variables not found');
-  throw new Error('Missing Supabase environment variables');
-}
+// Supabase credentials - these should be replaced with environment variables in production
+const supabaseUrl = 'https://hzlkvkptgsjxsltbecwj.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6bGt2a3B0Z3NqeHNsdGJlY3dqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk1ODEwNjksImV4cCI6MjA1NTE1NzA2OX0.hLKBw3u2rHDfGPpPe9eLiXSaqonbCn-U4nj_WlEIB2M';
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
