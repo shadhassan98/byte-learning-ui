@@ -18,7 +18,6 @@ export function CoursesGrid({ onSelectCourse }: CoursesGridProps) {
 
   const fetchCourses = async () => {
     try {
-      console.log('[v0] Fetching courses...');
       setLoading(true);
       const { data, error } = await supabase
         .from('courses')
@@ -26,13 +25,10 @@ export function CoursesGrid({ onSelectCourse }: CoursesGridProps) {
         .order('is_featured', { ascending: false })
         .order('created_at', { ascending: false });
 
-      console.log('[v0] Courses data:', data);
-      console.log('[v0] Courses error:', error);
-
       if (error) throw error;
       setCourses(data || []);
     } catch (error) {
-      console.error('[v0] Error fetching courses:', error);
+      console.error('Error fetching courses:', error);
     } finally {
       setLoading(false);
     }
