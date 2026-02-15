@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { ChevronDown, Copy } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Lesson, Section } from '../lib/database.types';
+import type { Lesson, Section, Course } from '../lib/database.types';
 
 interface LessonDetailProps {
   courseId: string;
@@ -12,23 +12,50 @@ interface LessonDetailProps {
 
 export function LessonDetail({ courseId, sectionId, lessonId, onBack }: LessonDetailProps) {
   const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [sections, setSections] = useState<Section[]>([]);
-  const [allLessons, setAllLessons] = useState<Lesson[]>([]);
+  const [course, setCourse] = useState<Course | null>(null);
+  const [sections, setSections] = useState<(Section & { lessons: Lesson[] })[]>([]);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('Python');
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
 
-      const [lessonRes, sectionsRes, lessonsRes] = await Promise.all([
+      const [lessonRes, courseRes, sectionsRes] = await Promise.all([
         supabase.from('lessons').select('*').eq('id', lessonId).maybeSingle(),
-        supabase.from('sections').select('*').eq('course_id', courseId).order('order'),
-        supabase.from('lessons').select('*').order('order')
+        courseId ? supabase.from('courses').select('*').eq('id', courseId).maybeSingle() : Promise.resolve({ data: null }),
+        courseId ? supabase.from('sections').select('*').eq('course_id', courseId).order('order') : Promise.resolve({ data: [] })
       ]);
 
       if (lessonRes.data) setLesson(lessonRes.data);
-      if (sectionsRes.data) setSections(sectionsRes.data);
-      if (lessonsRes.data) setAllLessons(lessonsRes.data);
+      if (courseRes.data) setCourse(courseRes.data);
+
+      if (sectionsRes.data && sectionsRes.data.length > 0) {
+        const sectionsWithLessons = await Promise.all(
+          sectionsRes.data.map(async (section) => {
+            const lessonsRes = await supabase
+              .from('lessons')
+              .select('*')
+              .eq('section_id', section.id)
+              .order('order');
+
+            return {
+              ...section,
+              lessons: lessonsRes.data || []
+            };
+          })
+        );
+
+        setSections(sectionsWithLessons);
+        
+        const currentSection = sectionsWithLessons.find(s => 
+          s.lessons.some(l => l.id === lessonId)
+        );
+        if (currentSection) {
+          setExpandedSection(currentSection.id);
+        }
+      }
 
       setLoading(false);
     };
@@ -44,113 +71,137 @@ export function LessonDetail({ courseId, sectionId, lessonId, onBack }: LessonDe
     return <div className="flex justify-center items-center h-screen">Lesson not found</div>;
   }
 
-  const currentLessonIndex = allLessons.findIndex(l => l.id === lessonId);
-  const prevLesson = currentLessonIndex > 0 ? allLessons[currentLessonIndex - 1] : null;
-  const nextLesson = currentLessonIndex < allLessons.length - 1 ? allLessons[currentLessonIndex + 1] : null;
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 py-8 px-4">
-          <aside className="lg:col-span-1">
-            <button
-              onClick={onBack}
-              className="mb-6 flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
-            >
-              <ChevronLeft className="w-5 h-5" />
-              Back to Course
-            </button>
+    <div className="flex min-h-screen">
+      <aside className="w-80 bg-[#3D3D3D] text-white flex-shrink-0">
+        <div className="p-6">
+          <h2 className="text-xl font-semibold text-gray-300 mb-6">
+            {course?.title || 'Coding Interview Patterns'}
+          </h2>
 
-            <div className="bg-white rounded-lg border border-gray-200 p-6 sticky top-20">
-              <h3 className="font-bold text-gray-900 mb-4">Course Content</h3>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {sections.map((section) => (
-                  <div key={section.id}>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">{section.title}</h4>
-                    <div className="space-y-1 pl-2 border-l-2 border-gray-200">
-                      {allLessons
-                        .filter(l => {
-                          const sectionLessons = allLessons.filter(lesson => {
-                            const lessonSection = sections.find(sec =>
-                              allLessons.some(les => les.id === lesson.id && les.section_id === sec.id)
-                            );
-                            return lessonSection?.id === section.id;
-                          });
-                          return sectionLessons.some(sl => sl.id === l.id);
-                        })
-                        .map((sectionLesson) => (
+          <div className="space-y-2">
+            {sections.map((section, index) => (
+              <div key={section.id} className="border-b border-gray-600 last:border-0">
+                <button
+                  onClick={() => setExpandedSection(expandedSection === section.id ? null : section.id)}
+                  className="w-full flex items-center justify-between py-3 text-left hover:text-white transition-colors"
+                >
+                  <span className="text-sm font-medium text-gray-300">
+                    {String(index + 1).padStart(2, '0')} {section.title}
+                  </span>
+                  <ChevronDown 
+                    className={`w-4 h-4 transition-transform ${expandedSection === section.id ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {expandedSection === section.id && (
+                  <div className="pb-3 space-y-1">
+                    {section.lessons.map((sectionLesson) => (
+                      <button
+                        key={sectionLesson.id}
+                        onClick={() => window.location.hash = `lesson/${sectionLesson.id}`}
+                        className={`w-full text-left px-4 py-2.5 rounded text-sm transition-colors ${
+                          sectionLesson.id === lessonId
+                            ? 'bg-[#5A5A5A] text-white font-medium'
+                            : 'text-gray-400 hover:bg-[#4A4A4A] hover:text-white'
+                        }`}
+                      >
+                        {sectionLesson.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </aside>
+
+      <main className="flex-1 overflow-auto">
+        <div className="max-w-5xl mx-auto px-8 py-12">
+          <h1 className="text-5xl font-bold text-gray-900 mb-8">{lesson.title}</h1>
+
+          <div className="space-y-8">
+            <section>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Intuition</h2>
+              <div className="text-gray-700 text-lg leading-relaxed space-y-4">
+                <p className="text-justify">
+                  {lesson.content || 'As the name implies, a two-pointer pattern refers to an algorithm that utilizes two pointers. But what is a pointer? It\'s a variable that represents an index or position within a data structure, like an array or linked list. Many algorithms just use a single pointer to attain or keep track of a single element:'}
+                </p>
+                
+                {lesson.content && lesson.content.includes('comparison') && (
+                  <>
+                    <div className="my-6 text-center">
+                      <div className="inline-block font-mono text-sm bg-gray-50 px-4 py-3 rounded">
+                        {'[... 14  5  5  20 ...]'}
+                        <div className="text-orange-500 mt-1">↑</div>
+                      </div>
+                    </div>
+
+                    <p className="text-justify">
+                      Introducing a second pointer opens a new world of possibilities. Most importantly, we can now make <span className="font-semibold">comparisons</span>. With pointers at two different positions, we can compare the elements at those positions and make decisions based on the comparison:
+                    </p>
+
+                    <div className="my-6 flex items-center justify-center gap-4">
+                      <div className="font-mono text-sm bg-gray-50 px-4 py-3 rounded">
+                        {'[... 14  5  5  20 ...]'}
+                        <div className="flex justify-around mt-1">
+                          <div className="text-orange-500">↑</div>
+                          <div className="text-blue-500">↑</div>
+                        </div>
+                      </div>
+                      <div className="text-sm font-mono bg-gray-50 px-4 py-3 rounded border border-gray-300">
+                        {'compare(nums[i], nums[j])\n——→ make decision'}
+                      </div>
+                    </div>
+
+                    <p className="text-justify">
+                      In many cases, such comparisons are made using two nested for-loops, which takes <em>O(n²)</em> time, where n denotes the length of the data structure. In the code snippet below, i and j are two pointers used to compare every two elements of an array:
+                    </p>
+
+                    <div className="my-6 bg-gradient-to-br from-teal-50 to-blue-50 rounded-lg p-6 border border-gray-200">
+                      <div className="flex gap-2 mb-4 border-b border-gray-300 pb-2">
+                        {['Python', 'JavaScript', 'Java', 'Cpp'].map((tab) => (
                           <button
-                            key={sectionLesson.id}
-                            onClick={() => window.location.hash = `#lesson/${sectionLesson.id}`}
-                            className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
-                              sectionLesson.id === lessonId
-                                ? 'bg-blue-100 text-blue-600 font-medium'
-                                : 'text-gray-600 hover:bg-gray-100'
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`px-4 py-2 text-sm font-medium rounded-t transition-colors ${
+                              activeTab === tab
+                                ? 'bg-white text-gray-900 border-t border-x border-gray-300'
+                                : 'text-gray-600 hover:text-gray-900'
                             }`}
                           >
-                            {sectionLesson.title}
+                            {tab}
                           </button>
                         ))}
+                        <button className="ml-auto p-2 hover:bg-white rounded transition-colors">
+                          <Copy className="w-4 h-4 text-gray-600" />
+                        </button>
+                      </div>
+                      <pre className="text-sm font-mono text-gray-900 overflow-x-auto">
+                        <code>
+{`for i in range(n):
+    for j in range(i + 1, n):
+        compare(nums[i], nums[j])`}
+                        </code>
+                      </pre>
                     </div>
-                  </div>
-                ))}
+                  </>
+                )}
               </div>
-            </div>
-          </aside>
+            </section>
+          </div>
 
-          <main className="lg:col-span-3">
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="p-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm text-gray-600">{lesson.duration}</span>
-                </div>
-                <h1 className="text-4xl font-bold text-gray-900 mb-6">{lesson.title}</h1>
-
-                <div className="prose prose-lg max-w-none">
-                  <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                    {lesson.content}
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 mt-12 pt-8">
-                  <div className="grid grid-cols-2 gap-4">
-                    {prevLesson ? (
-                      <button
-                        onClick={() => window.location.hash = `#lesson/${prevLesson.id}`}
-                        className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-left"
-                      >
-                        <ChevronLeft className="w-5 h-5 text-gray-600" />
-                        <div className="text-sm">
-                          <p className="text-gray-600">Previous</p>
-                          <p className="font-medium text-gray-900">{prevLesson.title}</p>
-                        </div>
-                      </button>
-                    ) : (
-                      <div />
-                    )}
-
-                    {nextLesson ? (
-                      <button
-                        onClick={() => window.location.hash = `#lesson/${nextLesson.id}`}
-                        className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-right justify-end"
-                      >
-                        <div className="text-sm">
-                          <p className="text-gray-600">Next</p>
-                          <p className="font-medium text-gray-900">{nextLesson.title}</p>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-gray-600" />
-                      </button>
-                    ) : (
-                      <div />
-                    )}
-                  </div>
-                </div>
+          <div className="fixed bottom-8 right-8">
+            <button className="bg-[#4EEDC4] hover:bg-[#3DD8AF] text-gray-900 font-semibold px-6 py-3 rounded-full shadow-lg transition-colors flex items-center gap-2">
+              Ask Alex
+              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center overflow-hidden">
+                <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-500" />
               </div>
-            </div>
-          </main>
+            </button>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -17,6 +17,7 @@ export interface Database {
           thumbnail: string;
           category: string;
           lessons_count: number;
+          learners_count?: number;
           duration: string;
           level: string;
           progress: number;
