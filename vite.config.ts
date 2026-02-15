@@ -9,5 +9,7 @@ export default defineConfig({
   },
   define: {
     '__WS_TOKEN__': JSON.stringify(process.env.WS_TOKEN || ''),
+    'import.meta.env.SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL),
+    'import.meta.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
   },
 });
