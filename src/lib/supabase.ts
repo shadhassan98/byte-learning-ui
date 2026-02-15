@@ -1,10 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Access environment variables that are injected via Vite config
+const supabaseUrl = import.meta.env.SUPABASE_URL as string;
+const supabaseAnonKey = import.meta.env.SUPABASE_ANON_KEY as string;
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseUrl || !supabaseAnonKey || supabaseUrl === 'undefined') {
+  console.error('Supabase environment variables not found');
   throw new Error('Missing Supabase environment variables');
 }
 
