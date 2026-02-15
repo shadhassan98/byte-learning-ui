@@ -18,6 +18,7 @@ export function CoursesGrid({ onSelectCourse }: CoursesGridProps) {
 
   const fetchCourses = async () => {
     try {
+      console.log('[v0] Fetching courses...');
       setLoading(true);
       const { data, error } = await supabase
         .from('courses')
@@ -25,10 +26,13 @@ export function CoursesGrid({ onSelectCourse }: CoursesGridProps) {
         .order('is_featured', { ascending: false })
         .order('created_at', { ascending: false });
 
+      console.log('[v0] Courses data:', data);
+      console.log('[v0] Courses error:', error);
+
       if (error) throw error;
       setCourses(data || []);
     } catch (error) {
-      console.error('Error fetching courses:', error);
+      console.error('[v0] Error fetching courses:', error);
     } finally {
       setLoading(false);
     }
@@ -38,6 +42,15 @@ export function CoursesGrid({ onSelectCourse }: CoursesGridProps) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 text-teal-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (courses.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <p className="text-gray-500 text-lg mb-2">No courses available</p>
+        <p className="text-gray-400 text-sm">Please check your Supabase configuration</p>
       </div>
     );
   }

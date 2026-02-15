@@ -16,6 +16,8 @@ interface RouteState {
 function App() {
   const [route, setRoute] = useState<RouteState>({ view: 'home' });
 
+  console.log('[v0] App mounted, current route:', route);
+
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
